@@ -181,7 +181,7 @@ public class JClient {
 			case "/connect":
 				echo(strToParse);
 				try {
-					clientSocket = new Socket(messageSplit[1], 52682);
+					clientSocket = new Socket(messageSplit[1], 80);
 					begin();
 				} catch(ConnectException ce) {
 					updateOutput("Could not connect to " + messageSplit[1] + ".");
