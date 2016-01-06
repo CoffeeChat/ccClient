@@ -38,7 +38,7 @@ public class JClient {
 	/**
 	 * Whether or not the user is connected to a server.
 	 */
-	private static boolean connected = false;
+	private static boolean connectedToServer = false;
 	
 	/**
 	 * A compiled list of messages sent to the client in order of time (earliest to latest).
@@ -62,26 +62,7 @@ public class JClient {
 	 * Starts when a valid connection to a JChat server is made.
 	 * @see messageStack
 	 */
-	private static Thread writeToClient = new Thread(new Runnable() {	
-		@Override
-		public void run() {
-			try {
-				BufferedReader fromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-				String message;
-				while((message = fromServer.readLine()) != null) {
-					JClient.updateOutput(message);
-				}
-			} catch(IOException ioe) {
-				ioe.printStackTrace();
-			} finally {
-				try {
-					clientSocket.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-	});
+	private static Thread writeToClient;
 	
 	/**
 	 * Initializes the client GUI. Also provides the event handler for the enter key,
@@ -181,7 +162,7 @@ public class JClient {
 			case "/connect":
 				echo(strToParse);
 				try {
-					clientSocket = new Socket(messageSplit[1], 80);
+					clientSocket = new Socket(messageSplit[1], 52682);
 					begin();
 				} catch(ConnectException ce) {
 					updateOutput("Could not connect to " + messageSplit[1] + ".");
@@ -189,11 +170,34 @@ public class JClient {
 					ioe.printStackTrace();
 				}
 				break;
+			
+			//Handled client-side. Attempts to disconnect from server. Seeing
+			//as it directly attempts to close the socket, things tend to get a touch messy.
+			//Takes no parameters.
+			case "/d":
+			case "/dc":
+			case "/disconnect":
+				echo(strToParse);
+				if(connectedToServer) {
+					String ip = clientSocket.getInetAddress().toString();
+					connectedToServer = false;
+					try {
+						clientSocket.close();
+						updateOutput("Successfully disconnected from server at " + ip);
+					} catch(IOException ioe) {
+						ioe.printStackTrace();
+						updateOutput("There was a problem disconnecting from the server. Restart this application.");
+					}
+				}
+				else {
+					updateOutput("You're not connected to a server!");
+				}
+				break;
 				
 			//Handled either server-side or client-side. If the user is not connected,
 			//message is echoed. Else, broadcasts message.
 			default:
-				if(connected) {
+				if(connectedToServer) {
 					toServer.println(strToParse);
 				} else {
 					echo(strToParse);
@@ -202,13 +206,38 @@ public class JClient {
 	}
 	
 	/**
-	 * Attempts to connect to server.
+	 * Attempts to connect to server. Creates a new instance of the thread dedicated
+	 * to retrieving messages sent by the server.
 	 */
 	public static void begin() {
 		try {
 			toServer = new PrintWriter(clientSocket.getOutputStream(), true);
+			
+			writeToClient = new Thread(new Runnable() {
+				@Override
+				public void run() {
+					try {
+						BufferedReader fromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+						String message;
+						while((message = fromServer.readLine()) != null) {
+							JClient.updateOutput(message);
+						}
+					} catch(IOException ioe) {
+						ioe.printStackTrace();
+					} finally {
+						try {
+							if(!clientSocket.isClosed()) {
+								clientSocket.close();
+							}
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					}
+				}
+			});
+			
 			writeToClient.start();
-			connected = true;
+			connectedToServer = true;
 		} catch(IOException ioe) {
 			ioe.printStackTrace();
 		}
