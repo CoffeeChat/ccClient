@@ -9,6 +9,11 @@ import java.net.*;
 import java.util.*;
 import javax.swing.*;
 
+/**
+ * Client-side software for the CoffeeChat program.
+ * @author Matti
+ *
+ */
 public class JClient {
 	
 	/**
