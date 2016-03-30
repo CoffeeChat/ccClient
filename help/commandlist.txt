@@ -1,0 +1,16 @@
+JCHAT --- COMMAND LIST
+
+NOTE: If you want to get more information on a command, precede it with a question mark when entering it in chat (e.g. "?/c").
+
+*CONNECT TO SERVER*
+/c [IPv4 Address]
+/connect [IPv4 Address]
+
+*DISCONNECT FROM SERVER*
+/d
+/dc
+/disconnect
+
+*ACCESS COMMAND LIST*
+/h
+/help

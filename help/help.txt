@@ -1,0 +1,25 @@
+CONNECT TO SERVER: local command
+/c [IPv4 address]
+/connect [IPv4 address]
+Connects to a server with the given IP address. Lack of parameters result in a connection failure.
+If you are already connected to a server when this command is issued, then you are automatically disconnected to reconnected to the new server.
+:::/c
+:::/connect
+::ENDPAGE::
+DISCONNECT FROM SERVER: local command
+/d
+/dc
+/disconnect
+Disconnects from the current server.
+:::/d
+:::/dc
+:::/disconnect
+::ENDPAGE::
+ACCESS COMMAND LIST: local command
+/h
+/help
+Prints all the commands one can use with the JChat client.
+In order to get a more detailed description of a command, precede an unparameterized instance with "?" (e.g. "?/c").
+:::/h
+:::/help
+::ENDPAGE::

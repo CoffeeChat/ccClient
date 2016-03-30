@@ -2,12 +2,16 @@ package client;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.io.*;
 import java.net.*;
 import java.util.*;
 import javax.swing.*;
+
+import org.apache.commons.validator.Validator;
+import org.apache.commons.validator.routines.InetAddressValidator;
 
 /**
  * Client-side software for the CoffeeChat program.
@@ -153,26 +157,40 @@ public class JClient {
 	 * If a non-command is sent (i.e. a normal message), it is echoed back to the user
 	 * if not connected to a server. If the user is connected to a server, it is broadcast 
 	 * to all users.
+	 * 
+	 * Note that the minimum length of an entered string must be one character.
+	 * This can be assumed in this method.
 	 * @param strToParse The string sent in for parsing.
 	 */
 	public static void localParse(String strToParse) {
 		msgInput.setText("");
 		String[] messageSplit = strToParse.split(" ");
 		
+		//Accesses manual pages using the preceding ?.
+		if(messageSplit[0].charAt(0) == '?') {
+			echo(strToParse);
+			if(messageSplit[0].length() > 1) {
+				updateOutput(Manual.getHelpPage(messageSplit[0].substring(1)));
+			} else {
+				updateOutput("Follow your ? with a command (such as \"?/c\" to get more information on its use.");
+			}
+			
+			return;
+		}
+		
+		echo(strToParse);
+		
 		//Note: the first element references the / commands. If it doesn't, it is a normal message.
 		switch(messageSplit[0]) {
+			
 			//Handled client-side. Attempts to connect to server with IP address
 			//indicated by first parameter.
 			case "/c":
 			case "/connect":
-				echo(strToParse);
-				try {
-					clientSocket = new Socket(messageSplit[1], 52682);
-					begin();
-				} catch(ConnectException ce) {
-					updateOutput("Could not connect to " + messageSplit[1] + ".");
-				} catch(IOException ioe) {
-					ioe.printStackTrace();
+				if(messageSplit.length != 1) {
+					connectToServer(messageSplit[1]);
+				} else {
+					updateOutput("You must enter a valid IPv4 address following the /c command (e.g. /c 192.168.1.3).");
 				}
 				break;
 			
@@ -182,7 +200,6 @@ public class JClient {
 			case "/d":
 			case "/dc":
 			case "/disconnect":
-				echo(strToParse);
 				if(connectedToServer) {
 					String ip = clientSocket.getInetAddress().toString();
 					connectedToServer = false;
@@ -198,6 +215,20 @@ public class JClient {
 					updateOutput("You're not connected to a server!");
 				}
 				break;
+			
+			//Handled client-side. Attempts to open the shorthand command list
+			//in the default text editor.
+			case "/h":
+			case "/help":
+				if(Desktop.isDesktopSupported()) {
+					try {
+						Desktop.getDesktop().open(new File("help/commandlist.txt"));
+					} catch(IOException ioe) {
+						updateOutput("Could not successfully open command list.");
+					}
+				}
+				break;
+				
 				
 			//Handled either server-side or client-side. If the user is not connected,
 			//message is echoed. Else, broadcasts message.
@@ -205,49 +236,61 @@ public class JClient {
 				if(connectedToServer) {
 					toServer.println(strToParse);
 				} else {
-					echo(strToParse);
+					
 				}
 		}
 	}
 	
-	/**
-	 * Attempts to connect to server. Creates a new instance of the thread dedicated
-	 * to retrieving messages sent by the server.
-	 */
-	public static void begin() {
-		try {
-			toServer = new PrintWriter(clientSocket.getOutputStream(), true);
-			
-			writeToClient = new Thread(new Runnable() {
-				@Override
-				public void run() {
-					try {
-						BufferedReader fromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-						String message;
-						while((message = fromServer.readLine()) != null) {
-							JClient.updateOutput(message);
-						}
-					} catch(IOException ioe) {
-						ioe.printStackTrace();
-					} finally {
+	public static boolean connectToServer(String ip) {
+		InetAddressValidator v = new InetAddressValidator();
+		if(v.isValidInet4Address(ip)) {
+			try {
+				clientSocket = new Socket();
+				clientSocket.setSoTimeout(5000);
+				clientSocket.connect(new InetSocketAddress(ip, 52682), 5000);
+				
+				toServer = new PrintWriter(clientSocket.getOutputStream(), true);
+				
+				writeToClient = new Thread(new Runnable() {
+					@Override
+					public void run() {
 						try {
-							if(!clientSocket.isClosed()) {
-								clientSocket.close();
+							BufferedReader fromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+							String message;
+							while((message = fromServer.readLine()) != null) {
+								JClient.updateOutput(message);
 							}
-						} catch (IOException e) {
-							e.printStackTrace();
+						} catch(IOException ioe) {
+							ioe.printStackTrace();
+						} finally {
+							try {
+								if(!clientSocket.isClosed()) {
+									clientSocket.close();
+								}
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
 						}
 					}
-				}
-			});
-			
-			writeToClient.start();
-			connectedToServer = true;
-		} catch(IOException ioe) {
-			ioe.printStackTrace();
+				});
+				
+				writeToClient.start();
+				connectedToServer = true;
+				
+			} catch (UnknownHostException e) {
+				e.printStackTrace();
+				updateOutput("Cannot connect to " + ip + ".");
+			} catch (IOException e) {
+				e.printStackTrace();
+				updateOutput("Cannot connect to " + ip + ".");
+			}	
+			return true;
+		} else {
+			updateOutput("Cannot connect to " + ip + ".");
+			return false;
 		}
 	}
-	
+
 	/**
 	 * Relays a message exclusively to the user that sent it.
 	 * @param msg Message to send to self.
